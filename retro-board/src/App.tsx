@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { storage } from './storage';
+import { createFirebaseStorage, FirebaseStorage } from './firebaseStorage';
 import Column from './components/Column';
 import ActionItems from './components/ActionItems';
 import Timer from './components/Timer';
 import { BoardData, Note, ActionItem, ColumnType } from './types';
 import { generateId, formatDate, exportToMarkdown, downloadMarkdown, sanitizeInput, formatTimestamp } from './utils';
-import { ArrowDownTrayIcon, FolderIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, FolderIcon, TrashIcon, ShareIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline';
 
 function App() {
   const [boardData, setBoardData] = useState<BoardData>({
@@ -25,18 +26,48 @@ function App() {
   const [isEditingSprint, setIsEditingSprint] = useState(false);
   const [sprintNumber, setSprintNumber] = useState('23');
   const [showUserModal, setShowUserModal] = useState(true);
+  const [useFirebase, setUseFirebase] = useState(false);
+  const [firebaseStorage, setFirebaseStorage] = useState<FirebaseStorage | null>(null);
+  const [sessionId, setSessionId] = useState<string>('');
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  
+  // Check for session ID in URL on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionParam = urlParams.get('session');
+    
+    if (sessionParam) {
+      // Join existing session
+      const fbStorage = createFirebaseStorage(sessionParam);
+      setFirebaseStorage(fbStorage);
+      setSessionId(sessionParam);
+      setUseFirebase(true);
+    }
+  }, []);
   
   // Subscribe to storage changes
   useEffect(() => {
-    const unsubscribe = storage.subscribe((data) => {
-      setBoardData(data);
-      setSprintNumber(data.sprint);
-    });
-    
-    return () => {
-      unsubscribe();
-    };
-  }, []);
+    if (useFirebase && firebaseStorage) {
+      const unsubscribe = firebaseStorage.subscribe((data) => {
+        setBoardData(data);
+        setSprintNumber(data.sprint);
+      });
+      
+      return () => {
+        unsubscribe();
+      };
+    } else {
+      const unsubscribe = storage.subscribe((data) => {
+        setBoardData(data);
+        setSprintNumber(data.sprint);
+      });
+      
+      return () => {
+        unsubscribe();
+      };
+    }
+  }, [useFirebase, firebaseStorage]);
   
   // Save user to localStorage
   useEffect(() => {
@@ -77,6 +108,30 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [boardData]);
   
+  // Start a new shared session
+  const startSharedSession = () => {
+    const fbStorage = createFirebaseStorage();
+    setFirebaseStorage(fbStorage);
+    setSessionId(fbStorage.getSessionId());
+    setUseFirebase(true);
+    
+    // Update URL with session ID
+    const url = new URL(window.location.href);
+    url.searchParams.set('session', fbStorage.getSessionId());
+    window.history.pushState({}, '', url);
+    
+    setShowShareModal(true);
+  };
+  
+  // Copy share link to clipboard
+  const copyShareLink = () => {
+    if (firebaseStorage) {
+      navigator.clipboard.writeText(firebaseStorage.getSessionUrl());
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    }
+  };
+  
   const handleAddNote = useCallback((columnId: ColumnType, text: string, author: string, color: string) => {
     const note: Note = {
       id: generateId(),
@@ -88,29 +143,45 @@ function App() {
       columnId
     };
     
-    storage.updateNote(columnId, note);
-  }, []);
+    if (useFirebase && firebaseStorage) {
+      firebaseStorage.updateNote(columnId, note);
+    } else {
+      storage.updateNote(columnId, note);
+    }
+  }, [useFirebase, firebaseStorage]);
   
-  const handleEditNote = useCallback((noteId: string, newText: string) => {
-    const data = storage.getData();
+  const handleEditNote = useCallback(async (noteId: string, newText: string) => {
+    const data = useFirebase && firebaseStorage 
+      ? await firebaseStorage.getData()
+      : storage.getData();
     
     Object.entries(data.columns).forEach(([columnId, notes]) => {
       const note = notes.find(n => n.id === noteId);
       if (note) {
         note.text = sanitizeInput(newText);
-        storage.updateNote(columnId, note);
+        if (useFirebase && firebaseStorage) {
+          firebaseStorage.updateNote(columnId, note);
+        } else {
+          storage.updateNote(columnId, note);
+        }
       }
     });
-  }, []);
+  }, [useFirebase, firebaseStorage]);
   
   const handleDeleteNote = useCallback((noteId: string) => {
-    storage.deleteNote(noteId);
-  }, []);
+    if (useFirebase && firebaseStorage) {
+      firebaseStorage.deleteNote(noteId);
+    } else {
+      storage.deleteNote(noteId);
+    }
+  }, [useFirebase, firebaseStorage]);
   
-  const handleVoteNote = useCallback((noteId: string) => {
+  const handleVoteNote = useCallback(async (noteId: string) => {
     if (!currentUser) return;
     
-    const data = storage.getData();
+    const data = useFirebase && firebaseStorage
+      ? await firebaseStorage.getData()
+      : storage.getData();
     
     Object.entries(data.columns).forEach(([columnId, notes]) => {
       const note = notes.find(n => n.id === noteId);
@@ -120,10 +191,14 @@ function App() {
           ? note.votes.filter(v => v !== currentUser)
           : [...note.votes, currentUser];
         
-        storage.updateNote(columnId, note);
+        if (useFirebase && firebaseStorage) {
+          firebaseStorage.updateNote(columnId, note);
+        } else {
+          storage.updateNote(columnId, note);
+        }
       }
     });
-  }, [currentUser]);
+  }, [currentUser, useFirebase, firebaseStorage]);
   
   const handleAddActionItem = useCallback((text: string, owner: string) => {
     const item: ActionItem = {
@@ -134,31 +209,53 @@ function App() {
       completed: false
     };
     
-    storage.updateActionItem(item);
-  }, []);
+    if (useFirebase && firebaseStorage) {
+      firebaseStorage.updateActionItem(item);
+    } else {
+      storage.updateActionItem(item);
+    }
+  }, [useFirebase, firebaseStorage]);
   
-  const handleToggleActionItem = useCallback((id: string) => {
-    const data = storage.getData();
+  const handleToggleActionItem = useCallback(async (id: string) => {
+    const data = useFirebase && firebaseStorage
+      ? await firebaseStorage.getData()
+      : storage.getData();
     const item = data.actionItems.find(i => i.id === id);
     
     if (item) {
       item.completed = !item.completed;
-      storage.updateActionItem(item);
+      if (useFirebase && firebaseStorage) {
+        firebaseStorage.updateActionItem(item);
+      } else {
+        storage.updateActionItem(item);
+      }
     }
-  }, []);
+  }, [useFirebase, firebaseStorage]);
   
   const handleDeleteActionItem = useCallback((id: string) => {
-    storage.deleteActionItem(id);
-  }, []);
+    if (useFirebase && firebaseStorage) {
+      firebaseStorage.deleteActionItem(id);
+    } else {
+      storage.deleteActionItem(id);
+    }
+  }, [useFirebase, firebaseStorage]);
   
   const handleUpdateSprint = () => {
-    storage.updateSprintInfo(sprintNumber, formatDate(new Date()));
+    if (useFirebase && firebaseStorage) {
+      firebaseStorage.updateSprintInfo(sprintNumber, formatDate(new Date()));
+    } else {
+      storage.updateSprintInfo(sprintNumber, formatDate(new Date()));
+    }
     setIsEditingSprint(false);
   };
   
   const handleClearBoard = () => {
     if (window.confirm('Are you sure you want to clear the entire board? This action cannot be undone.')) {
-      storage.clearBoard();
+      if (useFirebase && firebaseStorage) {
+        firebaseStorage.clearBoard();
+      } else {
+        storage.clearBoard();
+      }
     }
   };
   
@@ -202,6 +299,15 @@ function App() {
               <strong>Note:</strong> This board uses local storage. Data is saved in your browser and synchronized across tabs on the same device.
             </p>
           </div>
+          <div className="mt-4">
+            <button
+              onClick={startSharedSession}
+              className="w-full py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+            >
+              <ShareIcon className="w-5 h-5" />
+              Start Shared Session
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -241,14 +347,41 @@ function App() {
                   </button>
                 )}
                 <div className="flex items-center gap-1">
-                  <FolderIcon className="w-5 h-5" />
-                  <span>Local Storage Mode</span>
+                  {useFirebase ? (
+                    <>
+                      <ShareIcon className="w-5 h-5 text-green-400" />
+                      <span>Shared Session: {sessionId}</span>
+                    </>
+                  ) : (
+                    <>
+                      <FolderIcon className="w-5 h-5" />
+                      <span>Local Storage Mode</span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
             
             <div className="flex items-center gap-3">
               <Timer />
+              {!useFirebase && (
+                <button
+                  onClick={startSharedSession}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
+                >
+                  <ShareIcon className="w-5 h-5" />
+                  Share
+                </button>
+              )}
+              {useFirebase && (
+                <button
+                  onClick={() => setShowShareModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
+                >
+                  <ClipboardDocumentIcon className="w-5 h-5" />
+                  Get Link
+                </button>
+              )}
               <button
                 onClick={handleExport}
                 className="flex items-center gap-2 px-4 py-2 bg-walmart-yellow text-walmart-blue rounded-lg hover:bg-yellow-400 transition-colors font-medium"
@@ -297,9 +430,47 @@ function App() {
       {/* Footer */}
       <footer className="mt-8 py-4 text-center text-gray-500 text-sm">
         <p>Keyboard shortcuts: Ctrl+N (New Note) | Ctrl+E (Export)</p>
-        <p className="mt-2">Data is stored locally in your browser and syncs across tabs</p>
+        <p className="mt-2">{useFirebase ? 'Data is synced in real-time across all participants' : 'Data is stored locally in your browser and syncs across tabs'}</p>
         <p className="mt-1">Developed by Joshua Walderbach - September 2025</p>
       </footer>
+      
+      {/* Share Modal */}
+      {showShareModal && firebaseStorage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+            <h2 className="text-xl font-bold mb-4">Share This Retro Board</h2>
+            <p className="text-gray-600 mb-4">
+              Share this link with your team members to collaborate in real-time:
+            </p>
+            <div className="bg-gray-100 p-3 rounded-lg mb-4">
+              <code className="text-sm break-all">{firebaseStorage.getSessionUrl()}</code>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={copyShareLink}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+              >
+                <ClipboardDocumentIcon className="w-5 h-5" />
+                {copiedLink ? 'Copied!' : 'Copy Link'}
+              </button>
+              <button
+                onClick={() => setShowShareModal(false)}
+                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>Session ID:</strong> {sessionId}
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                All participants will see updates in real-time
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
