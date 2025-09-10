@@ -29,9 +29,9 @@ const Column: React.FC<ColumnProps> = ({
   
   const config = getColumnConfig(columnId);
   
-  const handleAddNote = () => {
+  const handleAddNote = async () => {
     if (newNoteText.trim() && currentUser.trim()) {
-      onAddNote(columnId, newNoteText.trim(), currentUser, selectedColor);
+      await onAddNote(columnId, newNoteText.trim(), currentUser, selectedColor);
       setNewNoteText('');
       setIsAddingNote(false);
       setSelectedColor('yellow');
