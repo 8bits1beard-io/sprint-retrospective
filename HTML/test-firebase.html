@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .log {
+            background: #f4f4f4;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+        input {
+            padding: 8px;
+            margin: 5px;
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Firebase Connection Test</h1>
+    
+    <div>
+        <h2>Session Management</h2>
+        <input type="text" id="sessionId" placeholder="Session ID (6 chars)" maxlength="6">
+        <button onclick="createSession()">Create New Session</button>
+        <button onclick="joinSession()">Join Session</button>
+    </div>
+    
+    <div>
+        <h2>Test Notes</h2>
+        <input type="text" id="noteText" placeholder="Note text">
+        <button onclick="addNote('wentWell')">Add to What Went Well</button>
+        <button onclick="addNote('didntGoWell')">Add to What Didn't Go Well</button>
+        <button onclick="addNote('kudos')">Add to Kudos</button>
+    </div>
+    
+    <div>
+        <h2>Current Session Data</h2>
+        <button onclick="refreshData()">Refresh Data</button>
+        <div id="sessionInfo"></div>
+        <div id="dataDisplay"></div>
+    </div>
+    
+    <div>
+        <h2>Logs</h2>
+        <div id="logs"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
+        import { getDatabase, ref, set, get, onValue } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js';
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyBVBEw-LmizewxOiTZGsEKplUUZjCEMmZQ",
+            authDomain: "sprint-retrospective-board.firebaseapp.com",
+            databaseURL: "https://sprint-retrospective-board-default-rtdb.firebaseio.com",
+            projectId: "sprint-retrospective-board",
+            storageBucket: "sprint-retrospective-board.firebasestorage.app",
+            messagingSenderId: "33872103198",
+            appId: "1:33872103198:web:752ea4d67c4854688c6b0f"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        
+        let currentSessionId = null;
+        let unsubscribe = null;
+        
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log ${type}`;
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logsDiv.insertBefore(logEntry, logsDiv.firstChild);
+        }
+        
+        window.createSession = function() {
+            currentSessionId = Math.random().toString(36).substring(2, 8).toUpperCase();
+            document.getElementById('sessionId').value = currentSessionId;
+            
+            const sessionRef = ref(database, `sessions/${currentSessionId}`);
+            const initialData = {
+                sprint: '23',
+                date: new Date().toISOString(),
+                columns: {
+                    wentWell: [],
+                    didntGoWell: [],
+                    kudos: []
+                },
+                actionItems: [],
+                activeUsers: 1
+            };
+            
+            set(sessionRef, initialData)
+                .then(() => {
+                    log(`Created session: ${currentSessionId}`, 'success');
+                    setupListener();
+                })
+                .catch(error => {
+                    log(`Error creating session: ${error.message}`, 'error');
+                });
+        };
+        
+        window.joinSession = function() {
+            const sessionId = document.getElementById('sessionId').value.toUpperCase();
+            if (!sessionId) {
+                log('Please enter a session ID', 'error');
+                return;
+            }
+            
+            currentSessionId = sessionId;
+            log(`Joining session: ${currentSessionId}`, 'info');
+            setupListener();
+        };
+        
+        function setupListener() {
+            if (unsubscribe) {
+                unsubscribe();
+            }
+            
+            const sessionRef = ref(database, `sessions/${currentSessionId}`);
+            unsubscribe = onValue(sessionRef, (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    displayData(data);
+                    log('Data updated from Firebase', 'success');
+                } else {
+                    log('No data found for this session', 'error');
+                }
+            });
+            
+            document.getElementById('sessionInfo').innerHTML = 
+                `<strong>Current Session:</strong> ${currentSessionId}<br>
+                 <strong>Share URL:</strong> ${window.location.origin}?session=${currentSessionId}`;
+        }
+        
+        window.addNote = async function(columnId) {
+            if (!currentSessionId) {
+                log('Please create or join a session first', 'error');
+                return;
+            }
+            
+            const noteText = document.getElementById('noteText').value;
+            if (!noteText) {
+                log('Please enter note text', 'error');
+                return;
+            }
+            
+            const sessionRef = ref(database, `sessions/${currentSessionId}`);
+            const snapshot = await get(sessionRef);
+            let data = snapshot.val();
+            
+            // Initialize data structure if it doesn't exist
+            if (!data) {
+                data = {
+                    columns: { wentWell: [], didntGoWell: [], kudos: [] },
+                    actionItems: [],
+                    sprint: '23',
+                    date: new Date().toISOString(),
+                    activeUsers: 1
+                };
+            }
+            
+            // Ensure columns exists
+            if (!data.columns) {
+                data.columns = { wentWell: [], didntGoWell: [], kudos: [] };
+            }
+            
+            // Ensure specific column exists
+            if (!data.columns[columnId]) {
+                data.columns[columnId] = [];
+            }
+            
+            const note = {
+                id: Math.random().toString(36).substr(2, 9),
+                text: noteText,
+                author: 'Test User',
+                timestamp: new Date().toISOString(),
+                color: 'yellow',
+                votes: [],
+                columnId: columnId
+            };
+            
+            data.columns[columnId].push(note);
+            
+            set(sessionRef, data)
+                .then(() => {
+                    log(`Added note to ${columnId}`, 'success');
+                    document.getElementById('noteText').value = '';
+                })
+                .catch(error => {
+                    log(`Error adding note: ${error.message}`, 'error');
+                });
+        };
+        
+        window.refreshData = function() {
+            if (!currentSessionId) {
+                log('No active session', 'error');
+                return;
+            }
+            
+            const sessionRef = ref(database, `sessions/${currentSessionId}`);
+            get(sessionRef)
+                .then(snapshot => {
+                    const data = snapshot.val();
+                    if (data) {
+                        displayData(data);
+                        log('Data refreshed', 'success');
+                    } else {
+                        log('No data found', 'error');
+                    }
+                })
+                .catch(error => {
+                    log(`Error refreshing: ${error.message}`, 'error');
+                });
+        };
+        
+        function displayData(data) {
+            const display = document.getElementById('dataDisplay');
+            display.innerHTML = `
+                <h3>Session Data:</h3>
+                <p><strong>Sprint:</strong> ${data.sprint || 'N/A'}</p>
+                <p><strong>What Went Well:</strong> ${data.columns?.wentWell?.length || 0} notes</p>
+                <p><strong>What Didn't Go Well:</strong> ${data.columns?.didntGoWell?.length || 0} notes</p>
+                <p><strong>Kudos:</strong> ${data.columns?.kudos?.length || 0} notes</p>
+                <p><strong>Action Items:</strong> ${data.actionItems?.length || 0} items</p>
+                <details>
+                    <summary>Raw Data</summary>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                </details>
+            `;
+        }
+        
+        log('Firebase test page loaded', 'success');
+    </script>
+</body>
+</html>

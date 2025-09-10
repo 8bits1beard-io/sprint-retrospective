@@ -403,7 +403,7 @@ function App() {
       {/* Main Board */}
       <main className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" style={{ minHeight: '600px' }}>
-          {(['wentWell', 'didntGoWell', 'kudos'] as ColumnType[]).map(columnId => (
+          {(['wentWell', 'didntGoWell'] as ColumnType[]).map(columnId => (
             <Column
               key={columnId}
               columnId={columnId}
@@ -416,7 +416,7 @@ function App() {
             />
           ))}
           
-          {/* Action Items as 4th column */}
+          {/* Action Items as 3rd column */}
           <div className="flex flex-col">
             <ActionItems
               actionItems={boardData.actionItems || []}
@@ -425,6 +425,17 @@ function App() {
               onDeleteActionItem={handleDeleteActionItem}
             />
           </div>
+          
+          {/* Kudos as 4th column */}
+          <Column
+            columnId="kudos"
+            notes={boardData.columns?.kudos || []}
+            currentUser={currentUser}
+            onAddNote={handleAddNote}
+            onEditNote={handleEditNote}
+            onDeleteNote={handleDeleteNote}
+            onVoteNote={handleVoteNote}
+          />
         </div>
       </main>
       
