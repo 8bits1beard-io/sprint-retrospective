@@ -13,10 +13,9 @@ function App() {
     sprint: '23',
     date: formatDate(new Date()),
     columns: {
-      liked: [],
-      learned: [],
-      lacked: [],
-      longedFor: []
+      wentWell: [],
+      didntGoWell: [],
+      kudos: []
     },
     actionItems: [],
     activeUsers: 1
@@ -403,8 +402,8 @@ function App() {
       
       {/* Main Board */}
       <main className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6" style={{ minHeight: '500px' }}>
-          {(['liked', 'learned', 'lacked', 'longedFor'] as ColumnType[]).map(columnId => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" style={{ minHeight: '600px' }}>
+          {(['wentWell', 'didntGoWell', 'kudos'] as ColumnType[]).map(columnId => (
             <Column
               key={columnId}
               columnId={columnId}
@@ -416,15 +415,17 @@ function App() {
               onVoteNote={handleVoteNote}
             />
           ))}
+          
+          {/* Action Items as 4th column */}
+          <div className="flex flex-col">
+            <ActionItems
+              actionItems={boardData.actionItems || []}
+              onAddActionItem={handleAddActionItem}
+              onToggleActionItem={handleToggleActionItem}
+              onDeleteActionItem={handleDeleteActionItem}
+            />
+          </div>
         </div>
-        
-        {/* Action Items */}
-        <ActionItems
-          actionItems={boardData.actionItems || []}
-          onAddActionItem={handleAddActionItem}
-          onToggleActionItem={handleToggleActionItem}
-          onDeleteActionItem={handleDeleteActionItem}
-        />
       </main>
       
       {/* Footer */}

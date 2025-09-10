@@ -67,10 +67,9 @@ export class LocalStorage {
       sprint: '23',
       date: formatDate(new Date()),
       columns: {
-        liked: [],
-        learned: [],
-        lacked: [],
-        longedFor: []
+        wentWell: [],
+        didntGoWell: [],
+        kudos: []
       },
       actionItems: [],
       activeUsers: 1
@@ -143,10 +142,9 @@ export class LocalStorage {
   clearBoard() {
     const data = this.getData();
     data.columns = {
-      liked: [],
-      learned: [],
-      lacked: [],
-      longedFor: []
+      wentWell: [],
+      didntGoWell: [],
+      kudos: []
     };
     data.actionItems = [];
     this.setData(data);

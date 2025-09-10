@@ -30,25 +30,26 @@ export const exportToMarkdown = (boardData: BoardData): string => {
   markdown += `**Date:** ${date}\n`;
   markdown += `**Exported:** ${formatDate(new Date())}\n\n`;
   
-  markdown += `## Liked (What went well)\n\n`;
-  columns.liked.forEach(note => {
-    markdown += `- ${note.text} (${note.author}) [${note.votes.length} votes]\n`;
-  });
+  markdown += `## What Went Well\n\n`;
+  if (columns.wentWell) {
+    columns.wentWell.forEach(note => {
+      markdown += `- ${note.text} (${note.author}) [${note.votes.length} votes]\n`;
+    });
+  }
   
-  markdown += `\n## Learned (New discoveries)\n\n`;
-  columns.learned.forEach(note => {
-    markdown += `- ${note.text} (${note.author}) [${note.votes.length} votes]\n`;
-  });
+  markdown += `\n## What Didn't Go Well\n\n`;
+  if (columns.didntGoWell) {
+    columns.didntGoWell.forEach(note => {
+      markdown += `- ${note.text} (${note.author}) [${note.votes.length} votes]\n`;
+    });
+  }
   
-  markdown += `\n## Lacked (What was missing)\n\n`;
-  columns.lacked.forEach(note => {
-    markdown += `- ${note.text} (${note.author}) [${note.votes.length} votes]\n`;
-  });
-  
-  markdown += `\n## Longed For (What we wished we had)\n\n`;
-  columns.longedFor.forEach(note => {
-    markdown += `- ${note.text} (${note.author}) [${note.votes.length} votes]\n`;
-  });
+  markdown += `\n## Kudos/Appreciation\n\n`;
+  if (columns.kudos) {
+    columns.kudos.forEach(note => {
+      markdown += `- ${note.text} (${note.author}) [${note.votes.length} votes]\n`;
+    });
+  }
   
   if (actionItems.length > 0) {
     markdown += `\n## Action Items\n\n`;
@@ -76,37 +77,29 @@ export const downloadMarkdown = (content: string, sprint: string, date: string):
 
 export const getColumnConfig = (columnId: string) => {
   const configs = {
-    liked: {
-      title: 'Liked',
-      subtitle: 'What went well',
-      icon: '👍',
+    wentWell: {
+      title: 'What Went Well',
+      subtitle: 'Positive aspects & achievements',
+      icon: '✅',
       bgColor: 'bg-green-50',
       borderColor: 'border-green-300',
       headerBg: 'bg-green-100'
     },
-    learned: {
-      title: 'Learned',
-      subtitle: 'New discoveries',
-      icon: '💡',
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-300',
-      headerBg: 'bg-blue-100'
-    },
-    lacked: {
-      title: 'Lacked',
-      subtitle: 'What was missing',
-      icon: '❌',
+    didntGoWell: {
+      title: "What Didn't Go Well",
+      subtitle: 'Challenges & obstacles',
+      icon: '⚠️',
       bgColor: 'bg-red-50',
       borderColor: 'border-red-300',
       headerBg: 'bg-red-100'
     },
-    longedFor: {
-      title: 'Longed For',
-      subtitle: 'What we wished we had',
+    kudos: {
+      title: 'Kudos/Appreciation',
+      subtitle: 'Recognition & thanks',
       icon: '🌟',
-      bgColor: 'bg-yellow-50',
-      borderColor: 'border-yellow-300',
-      headerBg: 'bg-yellow-100'
+      bgColor: 'bg-purple-50',
+      borderColor: 'border-purple-300',
+      headerBg: 'bg-purple-100'
     }
   };
   

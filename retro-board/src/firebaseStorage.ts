@@ -41,10 +41,9 @@ export class FirebaseStorage {
       sprint: '23',
       date: formatDate(new Date()),
       columns: {
-        liked: [],
-        learned: [],
-        lacked: [],
-        longedFor: []
+        wentWell: [],
+        didntGoWell: [],
+        kudos: []
       },
       actionItems: [],
       activeUsers: 1
@@ -139,10 +138,9 @@ export class FirebaseStorage {
   async clearBoard() {
     const data = await this.getData();
     data.columns = {
-      liked: [],
-      learned: [],
-      lacked: [],
-      longedFor: []
+      wentWell: [],
+      didntGoWell: [],
+      kudos: []
     };
     data.actionItems = [];
     await this.setData(data);

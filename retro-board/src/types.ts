@@ -17,16 +17,15 @@ export interface ActionItem {
   completed: boolean;
 }
 
-export type ColumnType = 'liked' | 'learned' | 'lacked' | 'longedFor';
+export type ColumnType = 'wentWell' | 'didntGoWell' | 'kudos';
 
 export interface BoardData {
   sprint: string;
   date: string;
   columns: {
-    liked: Note[];
-    learned: Note[];
-    lacked: Note[];
-    longedFor: Note[];
+    wentWell: Note[];
+    didntGoWell: Note[];
+    kudos: Note[];
   };
   actionItems: ActionItem[];
   activeUsers: number;
