@@ -83,6 +83,13 @@ export class FirebaseStorage {
 
   async updateNote(columnId: string, note: Note) {
     const data = await this.getData();
+    
+    // Ensure the column exists
+    if (!data.columns[columnId as keyof typeof data.columns]) {
+      console.error(`Column ${columnId} does not exist in data structure`);
+      return;
+    }
+    
     const column = data.columns[columnId as keyof typeof data.columns];
     const existingIndex = column.findIndex(n => n.id === note.id);
     

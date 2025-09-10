@@ -131,7 +131,7 @@ function App() {
     }
   };
   
-  const handleAddNote = useCallback((columnId: ColumnType, text: string, author: string, color: string) => {
+  const handleAddNote = useCallback(async (columnId: ColumnType, text: string, author: string, color: string) => {
     const note: Note = {
       id: generateId(),
       text: sanitizeInput(text),
@@ -143,7 +143,7 @@ function App() {
     };
     
     if (useFirebase && firebaseStorage) {
-      firebaseStorage.updateNote(columnId, note);
+      await firebaseStorage.updateNote(columnId, note);
     } else {
       storage.updateNote(columnId, note);
     }
