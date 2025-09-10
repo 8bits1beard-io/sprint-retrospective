@@ -408,7 +408,7 @@ function App() {
             <Column
               key={columnId}
               columnId={columnId}
-              notes={boardData.columns[columnId]}
+              notes={boardData.columns?.[columnId] || []}
               currentUser={currentUser}
               onAddNote={handleAddNote}
               onEditNote={handleEditNote}
@@ -420,7 +420,7 @@ function App() {
         
         {/* Action Items */}
         <ActionItems
-          actionItems={boardData.actionItems}
+          actionItems={boardData.actionItems || []}
           onAddActionItem={handleAddActionItem}
           onToggleActionItem={handleToggleActionItem}
           onDeleteActionItem={handleDeleteActionItem}

@@ -25,11 +25,13 @@ export class FirebaseStorage {
     // Set up real-time listener
     this.unsubscribe = onValue(this.sessionRef, (snapshot) => {
       const data = snapshot.val();
-      if (data) {
+      if (data && data.columns) {
         this.notifyListeners(data);
       } else {
         // Initialize with default data if session doesn't exist
-        this.setData(this.getDefaultData());
+        const defaultData = this.getDefaultData();
+        this.setData(defaultData);
+        this.notifyListeners(defaultData);
       }
     });
   }
@@ -55,6 +57,8 @@ export class FirebaseStorage {
 
   subscribe(listener: (data: BoardData) => void) {
     this.listeners.add(listener);
+    // Immediately call with default data to prevent undefined state
+    listener(this.getDefaultData());
     
     return () => {
       this.listeners.delete(listener);
